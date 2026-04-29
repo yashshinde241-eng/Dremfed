@@ -1,8 +1,3 @@
-"""
-DermFed – utils.py
-Shared dataset class, model factory, and training helpers.
-"""
-
 from __future__ import annotations
 
 import json

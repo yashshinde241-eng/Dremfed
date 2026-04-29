@@ -1,11 +1,3 @@
-"""
-DermFed – server.py
-Flower federated learning server using FedAvg aggregation.
-
-Usage (Windows):
-    python server.py --rounds 10 --n_clients 3
-"""
-
 from __future__ import annotations
 
 import argparse

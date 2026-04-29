@@ -1,11 +1,3 @@
-"""
-DermFed – app.py
-Streamlit dashboard: Simulation monitor + Inference engine.
-
-Run:
-    streamlit run app.py
-"""
-
 from __future__ import annotations
 
 import io
@@ -264,7 +256,7 @@ def hero() -> None:
         <div class="hero-banner">
             <div class="hero-title">🔬 DermFed</div>
             <p class="hero-sub">
-                Federated Learning · Skin Cancer Detection · HAM10000 Dataset · MobileNetV2
+                Privacy-Preserving Federated AI &nbsp;·&nbsp; Skin Lesion Analysis &nbsp;·&nbsp; MobileNetV2
             </p>
         </div>
         """,
@@ -303,10 +295,9 @@ def tab_simulation() -> None:
         st.markdown(
             """
             <div class="derm-card">
-            <b>How it works:</b> Multiple hospitals train a shared skin-cancer model
-            collaboratively — <em>without ever sharing raw patient images</em>.
-            Only encrypted model weight updates travel to the central aggregator
-            (FedAvg). This simulates a real-world privacy-preserving clinical AI pipeline.
+            Multiple hospitals collaboratively train a shared skin-lesion model
+            — <em>without sharing raw patient images</em>.
+            Only model weight updates are exchanged via FedAvg aggregation.
             </div>
             """,
             unsafe_allow_html=True,
@@ -441,8 +432,7 @@ def tab_simulation() -> None:
                 <div style="font-size:2rem; margin-bottom:1rem;">📊</div>
                 <div style="color:var(--text-muted);">
                     No training data yet.<br>
-                    <b>Run the FL server and clients</b> to start training,
-                    then refresh this page.
+                    Start the FL server and clients to begin.
                 </div>
             </div>
             """,
@@ -466,7 +456,7 @@ def tab_simulation() -> None:
         st.rerun()
 
     # ── Quick-start instructions ──────────────────────────────────────────────
-    with st.expander("📋 How to start the FL training (Windows)"):
+    with st.expander("📋 Quick Start"):
         st.code(
             f"""# Terminal 1 — Start the FL Server
 python server.py --rounds 10 --n_clients {n_clients}
@@ -486,7 +476,7 @@ def tab_inference() -> None:
     import torch
 
     st.markdown("### Explainable AI Inference", unsafe_allow_html=True)
-    st.caption("Grad-CAM visual explanation  |  Groq LLaMA 4 Scout clinical narrative  |  TEE privacy layer")
+    st.caption("Grad-CAM visual explanation  ·  Groq LLaMA 4 Scout clinical narrative  ·  TEE privacy layer")
 
     @st.cache_resource(show_spinner="Loading global model ...", ttl=60)
     def load_global_model():
@@ -499,7 +489,7 @@ def tab_inference() -> None:
 
     model, model_loaded = load_global_model()
     if not model_loaded:
-        st.warning("No trained global model found. Run FL training first. Using random weights.", icon="⚠️")
+        st.warning("No trained model found. Complete at least one FL round to enable inference.", icon="⚠️")
 
     engine = get_engine()
     tee_ok, tee_msg = engine.refresh_status()
@@ -521,8 +511,9 @@ def tab_inference() -> None:
             rgba(255,180,0,0.3);border-radius:10px;padding:0.75rem 1.2rem;
             margin-bottom:1rem;font-size:0.82rem;">
             ⚠️ <b style="color:var(--accent-amber);">Groq Offline</b> &nbsp;·&nbsp;
-            <span style="color:var(--text-muted);">Grad-CAM still works without VLM.<br>
-            Fix: Set your API key: <code>$env:GROQ_API_KEY=\"your_key\"</code><br>Get free key: <a href=\'https://console.groq.com\' style=\'color:var(--accent-amber)\'>console.groq.com</a></span></div>""",
+            <span style="color:var(--text-muted);">Grad-CAM analysis is available.
+            Set <code>GROQ_API_KEY</code> to enable AI narrative.
+            Get a free key at <a href='https://console.groq.com' style='color:var(--accent-amber)'>console.groq.com</a>.</span></div>""",
             unsafe_allow_html=True,
         )
 
@@ -533,7 +524,7 @@ def tab_inference() -> None:
             """<div class="derm-card"><h4 style="margin:0 0 0.5rem 0;">
             Upload Dermatoscopic Image</h4>
             <p style="color:var(--text-muted);font-size:0.82rem;">
-            JPG / PNG · EXIF auto-stripped by TEE layer</p></div>""",
+            JPG / PNG &nbsp;·&nbsp; EXIF auto-stripped</p></div>""",
             unsafe_allow_html=True,
         )
         uploaded = st.file_uploader("img", type=["jpg","jpeg","png"], label_visibility="collapsed")
@@ -548,7 +539,7 @@ def tab_inference() -> None:
                 """<div class="derm-card" style="text-align:center;padding:4rem 2rem;">
                 <div style="font-size:3rem;margin-bottom:1rem;">🩺</div>
                 <div style="color:var(--text-muted);">Upload a lesion image to get
-                Grad-CAM + Gemini explanation.</div></div>""",
+                Grad-CAM + AI explanation.</div></div>""",
                 unsafe_allow_html=True,
             )
         else:
@@ -577,7 +568,7 @@ def tab_inference() -> None:
     if uploaded:
         st.markdown("---")
         st.markdown("#### 🔍 Grad-CAM Attention Maps")
-        st.caption("Red/yellow = regions that most influenced the CNN prediction. Blue = ignored.")
+        st.caption("Highlighted regions indicate areas most influential to the prediction.")
 
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -591,8 +582,8 @@ def tab_inference() -> None:
             st.image(xai["overlay_pil"], use_column_width=True)
 
         st.markdown("---")
-        st.markdown("#### ✨ Gemini 1.5 Flash Clinical Explanation")
-        st.caption("Powered by Groq LLaMA 4 Scout (free tier) — GradCAM overlay only, EXIF-stripped, HTTPS encrypted")
+        st.markdown("#### ✨ Clinical Explanation")
+        st.caption("Powered by Groq LLaMA 4 Scout — GradCAM overlay only · EXIF-stripped · HTTPS encrypted")
 
         col_btn, col_info = st.columns([2, 3])
         with col_btn:
@@ -602,7 +593,7 @@ def tab_inference() -> None:
                 """<div style="font-size:0.75rem;color:var(--text-muted);
                 padding:0.5rem 0.8rem;background:rgba(0,0,0,0.2);border-radius:8px;line-height:1.7;">
                 TEE guarantees: EXIF stripped · raw image never sent · only GradCAM overlay
-                transmitted · HTTPS encrypted · no persistent storage (Gemini policy)
+                transmitted · HTTPS encrypted
                 </div>""",
                 unsafe_allow_html=True,
             )
@@ -631,7 +622,7 @@ def tab_inference() -> None:
                     unsafe_allow_html=True,
                 )
                 st.markdown(result["explanation"])
-                with st.expander("🔒 Full TEE Audit Record"):
+                with st.expander("🔒 Privacy Audit Record"):
                     tee = result["tee_status"]
                     for k, v in tee.items():
                         label = k.replace("_", " ").title()
@@ -650,15 +641,14 @@ def tab_inference() -> None:
                         )
                     st.caption(f"Audit log: {result['tee_status']['audit_log']}")
             else:
-                st.error(f"Gemini error: {result['explanation']}")
+                st.error(result['explanation'])
 
         st.markdown(
             """<div style="margin-top:1.5rem;padding:1rem;background:rgba(255,77,143,0.07);
             border:1px solid rgba(255,77,143,0.25);border-radius:8px;
             font-size:0.78rem;color:var(--text-muted);">
-            ⚕️ <b>Medical Disclaimer</b> — Research prototype only.
-            Not a medical device. Do not use for clinical diagnosis.
-            Consult a qualified dermatologist.</div>""",
+            ⚕️ <b>Medical Disclaimer</b> — For research use only.
+            Always consult a qualified dermatologist for clinical decisions.</div>""",
             unsafe_allow_html=True,
         )
 
@@ -677,7 +667,7 @@ def sidebar() -> None:
                     DermFed
                 </div>
                 <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
-                    v2.0 · XAI + TEE + VLM
+                    XAI · TEE · Federated Learning
                 </div>
             </div>
             <hr>
@@ -730,7 +720,7 @@ def sidebar() -> None:
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown(
             "<div style='font-size:0.72rem; color:var(--text-muted); text-align:center;'>"
-            "Built with ❤️ · Privacy-First Medical AI</div>",
+            "Privacy-First Medical AI</div>",
             unsafe_allow_html=True,
         )
 
@@ -741,7 +731,7 @@ def main() -> None:
     sidebar()
     hero()
 
-    tab_a, tab_b = st.tabs(["📊  Simulation Monitor", "🩺  XAI Inference + TEE"])
+    tab_a, tab_b = st.tabs(["📊  Simulation Monitor", "🩺  AI Inference"])
     with tab_a:
         tab_simulation()
     with tab_b:

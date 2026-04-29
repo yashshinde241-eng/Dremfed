@@ -1,13 +1,3 @@
-"""
-DermFed – client.py
-Flower federated learning client representing one hospital.
-
-Usage (Windows):
-    python client.py --hospital_id 0
-    python client.py --hospital_id 1
-    python client.py --hospital_id 2
-"""
-
 from __future__ import annotations
 
 import argparse

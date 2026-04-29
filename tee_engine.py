@@ -1,29 +1,3 @@
-"""
-DermFed - tee_engine.py  (v3.0 - Groq edition)
-TEE simulation layer + Groq LLaMA Vision VLM integration.
-
-WHY GROQ (FREE TIER):
-  - 30 requests/min, 14,400 requests/day - completely free
-  - No credit card required
-  - Native vision support via meta-llama/llama-4-scout-17b-16e-instruct
-  - ~0.5-1 second response time (LPU hardware)
-  - No rate limit issues on normal usage
-
-TEE SIMULATION:
-  1. PII scrubbing  - strip ALL EXIF before VLM touch
-  2. Data isolation - VLM receives ONLY sanitised GradCAM overlay + text
-  3. Audit trail    - every call logged with hash only (never raw data)
-  4. Context fence  - system prompt bans personal info retention
-  5. Minimal disclosure - GradCAM overlay only, not raw patient image
-
-SETUP:
-  1. Get free API key: https://console.groq.com  (no credit card)
-  2. Set env variable:
-       Windows CMD:        set GROQ_API_KEY=your_key_here
-       Windows PowerShell: $env:GROQ_API_KEY="your_key_here"
-       Or create a .env file in project root (loaded automatically)
-"""
-
 from __future__ import annotations
 
 import base64

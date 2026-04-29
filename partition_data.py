@@ -1,8 +1,3 @@
-"""
-DermFed - Federated Skin Cancer Detection
-partition_data.py: Splits the HAM10000 dataset into N hospital silos.
-"""
-
 import os
 import shutil
 import argparse

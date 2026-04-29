@@ -9,10 +9,6 @@ flwr==1.8.0
 torch==2.2.2
 torchvision==0.17.2
 
-# If you have an NVIDIA GPU, replace the two lines above with:
-#   torch==2.2.2+cu121 --index-url https://download.pytorch.org/whl/cu121
-#   torchvision==0.17.2+cu121 --index-url https://download.pytorch.org/whl/cu121
-
 # ── Data & ML Utilities ──────────────────────────────────────────────────────
 pandas==2.2.1
 numpy==1.26.4

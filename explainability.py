@@ -1,17 +1,3 @@
-"""
-DermFed - explainability.py
-Grad-CAM heatmap engine for MobileNetV2.
-
-Grad-CAM (Gradient-weighted Class Activation Mapping):
-  1. Forward pass -> record last conv layer activations.
-  2. Backward pass for predicted class -> get gradients.
-  3. Global-avg-pool gradients -> per-channel importance weights.
-  4. Weight activation maps + ReLU -> heatmap.
-  5. Resize + blend onto original image.
-
-Reference: Selvaraju et al. 2017  https://arxiv.org/abs/1610.02391
-"""
-
 from __future__ import annotations
 
 import io
