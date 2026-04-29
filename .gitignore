@@ -1,0 +1,46 @@
+# DermFed .gitignore
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Dataset (too large for git — download from Kaggle)
+data/raw/
+data/partitions/
+
+# Trained models
+models/*.pt
+models/*.pth
+
+# Results
+results/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Logs
+*.log

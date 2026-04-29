@@ -1,0 +1,27 @@
+# DermFed – Python Dependencies
+# Tested on Python 3.10 / 3.11 (Windows 10/11)
+
+# ── Federated Learning ────────────────────────────────────────────────────────
+flwr==1.8.0
+
+# ── Deep Learning ────────────────────────────────────────────────────────────
+# For CPU-only (lighter, no CUDA):
+torch==2.2.2
+torchvision==0.17.2
+
+# If you have an NVIDIA GPU, replace the two lines above with:
+#   torch==2.2.2+cu121 --index-url https://download.pytorch.org/whl/cu121
+#   torchvision==0.17.2+cu121 --index-url https://download.pytorch.org/whl/cu121
+
+# ── Data & ML Utilities ──────────────────────────────────────────────────────
+pandas==2.2.1
+numpy==1.26.4
+scikit-learn==1.4.1.post1
+Pillow==10.3.0
+
+# ── Dashboard ────────────────────────────────────────────────────────────────
+streamlit==1.33.0
+plotly==5.21.0
+
+# ── Optional (Kaggle download helper) ────────────────────────────────────────
+# kaggle==1.6.6
