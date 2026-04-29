@@ -36,8 +36,9 @@ from utils import (
     DEVICE,
     EVAL_TRANSFORM,
     build_model,
-    predict,
 )
+from explainability import explain_prediction
+from tee_engine import get_engine
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 # Anchored to this file so paths work regardless of working directory
@@ -480,139 +481,186 @@ python client.py --hospital_id 1
         )
 
 
-# ── Tab B: Inference ──────────────────────────────────────────────────────────
+# -- Tab B: XAI Inference + TEE -------------------------------------------
 def tab_inference() -> None:
-    st.markdown("### 🔬 Skin Lesion Classification")
+    import torch
 
-    # ── Load model ────────────────────────────────────────────────────────────
-    @st.cache_resource(show_spinner="Loading global model …", ttl=60)
+    st.markdown("### Explainable AI Inference", unsafe_allow_html=True)
+    st.caption("Grad-CAM visual explanation  |  Groq LLaMA 4 Scout clinical narrative  |  TEE privacy layer")
+
+    @st.cache_resource(show_spinner="Loading global model ...", ttl=60)
     def load_global_model():
-        model = build_model()
+        m = build_model()
         if GLOBAL_MODEL_PATH.exists():
             state = torch.load(GLOBAL_MODEL_PATH, map_location=DEVICE)
-            model.load_state_dict(state)
-            return model, True
-        return model, False
+            m.load_state_dict(state)
+            return m, True
+        return m, False
 
     model, model_loaded = load_global_model()
-
     if not model_loaded:
-        st.warning(
-            "⚠️ No trained global model found at `models/global_model.pt`.\n\n"
-            "The app will use a **randomly-initialised** MobileNetV2 until you "
-            "complete at least one federated round. Predictions will not be meaningful.",
-            icon="⚠️",
-        )
+        st.warning("No trained global model found. Run FL training first. Using random weights.", icon="⚠️")
 
-    col_upload, col_result = st.columns([1, 1], gap="large")
+    engine = get_engine()
+    tee_ok, tee_msg = engine.refresh_status()
 
-    with col_upload:
+    if tee_ok:
         st.markdown(
-            """
-            <div class="derm-card">
-                <h4 style="margin:0 0 0.75rem 0; color:var(--text-primary);">
-                    Upload Dermatoscopic Image
-                </h4>
-                <p style="color:var(--text-muted); font-size:0.85rem;">
-                    Accepts JPG, PNG, JPEG · Recommended: ≥ 450 × 450 px
-                </p>
-            </div>
-            """,
+            f"""<div style="background:rgba(0,255,136,0.07);border:1px solid
+            rgba(0,255,136,0.3);border-radius:10px;padding:0.75rem 1.2rem;
+            margin-bottom:1rem;font-size:0.82rem;">
+            🔒 <b style="color:var(--accent-green);">TEE Active</b> &nbsp;·&nbsp;
+            {tee_msg} &nbsp;·&nbsp;
+            <span style="color:var(--text-muted);">EXIF stripped · GradCAM overlay
+            only sent to VLM · data stays on-device</span></div>""",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            """<div style="background:rgba(255,180,0,0.07);border:1px solid
+            rgba(255,180,0,0.3);border-radius:10px;padding:0.75rem 1.2rem;
+            margin-bottom:1rem;font-size:0.82rem;">
+            ⚠️ <b style="color:var(--accent-amber);">Groq Offline</b> &nbsp;·&nbsp;
+            <span style="color:var(--text-muted);">Grad-CAM still works without VLM.<br>
+            Fix: Set your API key: <code>$env:GROQ_API_KEY=\"your_key\"</code><br>Get free key: <a href=\'https://console.groq.com\' style=\'color:var(--accent-amber)\'>console.groq.com</a></span></div>""",
             unsafe_allow_html=True,
         )
 
-        uploaded_file = st.file_uploader(
-            "Choose a dermatoscopic image",
-            type=["jpg", "jpeg", "png"],
-            label_visibility="collapsed",
+    col_up, col_res = st.columns([1, 1], gap="large")
+
+    with col_up:
+        st.markdown(
+            """<div class="derm-card"><h4 style="margin:0 0 0.5rem 0;">
+            Upload Dermatoscopic Image</h4>
+            <p style="color:var(--text-muted);font-size:0.82rem;">
+            JPG / PNG · EXIF auto-stripped by TEE layer</p></div>""",
+            unsafe_allow_html=True,
         )
+        uploaded = st.file_uploader("img", type=["jpg","jpeg","png"], label_visibility="collapsed")
+        if uploaded:
+            image = Image.open(uploaded).convert("RGB")
+            st.image(image, caption="Uploaded image", use_column_width=True)
+            alpha = st.slider("GradCAM blend intensity", 0.2, 0.8, 0.45, 0.05)
 
-        if uploaded_file:
-            image = Image.open(uploaded_file).convert("RGB")
-            st.image(image, caption="Uploaded Image", use_column_width=True)
-
-            # ── About the classes ─────────────────────────────────────────────
-            with st.expander("ℹ️ About the 7 diagnostic classes"):
-                class_info = {
-                    "Actinic Keratoses (akiec)": "Pre-cancerous skin lesion caused by sun exposure.",
-                    "Basal Cell Carcinoma (bcc)": "Most common skin cancer; rarely metastasises.",
-                    "Benign Keratosis (bkl)":    "Non-cancerous growth including solar lentigines & seborrheic keratosis.",
-                    "Dermatofibroma (df)":        "Common benign fibrous nodule usually on legs.",
-                    "Melanoma (mel)":             "Most dangerous skin cancer arising from melanocytes.",
-                    "Melanocytic Nevi (nv)":      "Common benign moles (>67% of dataset).",
-                    "Vascular Lesions (vasc)":    "Includes angiomas, angiokeratomas, pyogenic granulomas.",
-                }
-                for cls, desc in class_info.items():
-                    st.markdown(
-                        f"**{cls}** — <span style='color:var(--text-muted);font-size:0.85rem'>{desc}</span>",
-                        unsafe_allow_html=True,
-                    )
-
-    with col_result:
-        if uploaded_file:
-            with st.spinner("Analysing …"):
-                pred_idx, confidence, probs = predict(model, image)
-
-            pred_class = CLASS_NAMES[pred_idx]
-            pred_color = CLASS_COLORS[pred_idx]
-            conf_pct   = confidence * 100
-
-            # ── Result box ────────────────────────────────────────────────────
+    with col_res:
+        if not uploaded:
             st.markdown(
-                f"""
-                <div class="pred-result">
-                    <div style="font-size:0.8rem; color:var(--text-muted); 
-                         text-transform:uppercase; letter-spacing:0.1em;
-                         margin-bottom:0.5rem;">
-                        Predicted Diagnosis
-                    </div>
-                    <div class="pred-class" style="color:{pred_color};">
-                        {pred_class}
-                    </div>
-                    <div class="pred-conf">
-                        Confidence: <b style="color:var(--accent-green);">{conf_pct:.1f}%</b>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(
-                "<p style='color:var(--text-muted); font-size:0.85rem;'>"
-                "Class probability distribution</p>",
-                unsafe_allow_html=True,
-            )
-            confidence_bars(probs)
-
-            # ── Disclaimer ────────────────────────────────────────────────────
-            st.markdown(
-                """
-                <div style="margin-top:1.5rem; padding:1rem;
-                     background:rgba(255,77,143,0.07);
-                     border:1px solid rgba(255,77,143,0.25);
-                     border-radius:8px; font-size:0.78rem;
-                     color:var(--text-muted);">
-                    ⚕️ <b>Medical Disclaimer</b> — This tool is for educational/research
-                    purposes only and does not constitute medical advice. Always consult
-                    a qualified dermatologist for clinical diagnosis.
-                </div>
-                """,
+                """<div class="derm-card" style="text-align:center;padding:4rem 2rem;">
+                <div style="font-size:3rem;margin-bottom:1rem;">🩺</div>
+                <div style="color:var(--text-muted);">Upload a lesion image to get
+                Grad-CAM + Gemini explanation.</div></div>""",
                 unsafe_allow_html=True,
             )
         else:
+            with st.spinner("Running Grad-CAM ..."):
+                xai = explain_prediction(model, image, alpha=alpha)
+
+            pred_class = CLASS_NAMES[xai["pred_class"]]
+            pred_color = CLASS_COLORS[xai["pred_class"]]
+            conf_pct   = xai["confidence"] * 100
+
             st.markdown(
-                """
-                <div class="derm-card" style="text-align:center; padding:4rem 2rem;">
-                    <div style="font-size:3rem; margin-bottom:1rem;">🩺</div>
-                    <div style="color:var(--text-muted);">
-                        Upload a dermatoscopic image on the left to see
-                        the AI-powered classification result here.
-                    </div>
-                </div>
-                """,
+                f"""<div class="pred-result">
+                <div style="font-size:0.75rem;color:var(--text-muted);
+                     text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.4rem;">
+                CNN Prediction</div>
+                <div class="pred-class" style="color:{pred_color};">{pred_class}</div>
+                <div class="pred-conf">Confidence:
+                <b style="color:var(--accent-green);">{conf_pct:.1f}%</b></div>
+                </div>""",
                 unsafe_allow_html=True,
             )
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<p style='color:var(--text-muted);font-size:0.82rem;'>Class probabilities</p>", unsafe_allow_html=True)
+            confidence_bars(xai["all_probs"])
+
+    if uploaded:
+        st.markdown("---")
+        st.markdown("#### 🔍 Grad-CAM Attention Maps")
+        st.caption("Red/yellow = regions that most influenced the CNN prediction. Blue = ignored.")
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown("<p style='text-align:center;color:var(--text-muted);font-size:0.78rem;'>Original</p>", unsafe_allow_html=True)
+            st.image(image, use_column_width=True)
+        with c2:
+            st.markdown("<p style='text-align:center;color:var(--text-muted);font-size:0.78rem;'>Grad-CAM Heatmap</p>", unsafe_allow_html=True)
+            st.image(xai["heatmap_pil"], use_column_width=True)
+        with c3:
+            st.markdown("<p style='text-align:center;color:var(--text-muted);font-size:0.78rem;'>Overlay (sent to VLM)</p>", unsafe_allow_html=True)
+            st.image(xai["overlay_pil"], use_column_width=True)
+
+        st.markdown("---")
+        st.markdown("#### ✨ Gemini 1.5 Flash Clinical Explanation")
+        st.caption("Powered by Groq LLaMA 4 Scout (free tier) — GradCAM overlay only, EXIF-stripped, HTTPS encrypted")
+
+        col_btn, col_info = st.columns([2, 3])
+        with col_btn:
+            run_vlm = st.button("✨ Generate Groq Explanation", use_container_width=True)
+        with col_info:
+            st.markdown(
+                """<div style="font-size:0.75rem;color:var(--text-muted);
+                padding:0.5rem 0.8rem;background:rgba(0,0,0,0.2);border-radius:8px;line-height:1.7;">
+                TEE guarantees: EXIF stripped · raw image never sent · only GradCAM overlay
+                transmitted · HTTPS encrypted · no persistent storage (Gemini policy)
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
+        if run_vlm:
+            with st.spinner("Groq LLaMA analysing GradCAM overlay inside TEE ..."):
+                result = engine.generate_explanation(
+                    original_image  = image,
+                    overlay_image   = xai["overlay_pil"],
+                    pred_class_idx  = xai["pred_class"],
+                    pred_class_name = CLASS_NAMES[xai["pred_class"]],
+                    confidence      = xai["confidence"],
+                    all_probs       = xai["all_probs"],
+                    class_names     = CLASS_NAMES,
+                    region_desc     = xai["region_desc"],
+                )
+
+            if result["success"]:
+                st.markdown(
+                    f"""<div class="derm-card-accent" style="margin-top:1rem;">
+                    <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.75rem;display:flex;gap:1.5rem;flex-wrap:wrap;">
+                    <span>🔒 Audit ID: <code>{result["audit_id"]}</code></span>
+                    <span>⚡ {result["latency_ms"]}ms</span>
+                    <span>✨ {result["tee_status"]["vlm_model"]}</span>
+                    </div></div>""",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(result["explanation"])
+                with st.expander("🔒 Full TEE Audit Record"):
+                    tee = result["tee_status"]
+                    for k, v in tee.items():
+                        label = k.replace("_", " ").title()
+                        if k == "data_leaves_device":
+                            display = "No — data stays local" if not v else "YES — WARNING"
+                            icon = "✅" if not v else "❌"
+                        elif k in ("pii_scrubbed", "exif_stripped"):
+                            display, icon = str(v), "✅"
+                        else:
+                            display, icon = str(v), "ℹ️"
+                        st.markdown(
+                            f"<div style='display:flex;gap:1rem;font-size:0.82rem;margin-bottom:0.25rem;'>"
+                            f"<span style='color:var(--text-muted);min-width:200px;'>{icon} {label}</span>"
+                            f"<code>{display}</code></div>",
+                            unsafe_allow_html=True,
+                        )
+                    st.caption(f"Audit log: {result['tee_status']['audit_log']}")
+            else:
+                st.error(f"Gemini error: {result['explanation']}")
+
+        st.markdown(
+            """<div style="margin-top:1.5rem;padding:1rem;background:rgba(255,77,143,0.07);
+            border:1px solid rgba(255,77,143,0.25);border-radius:8px;
+            font-size:0.78rem;color:var(--text-muted);">
+            ⚕️ <b>Medical Disclaimer</b> — Research prototype only.
+            Not a medical device. Do not use for clinical diagnosis.
+            Consult a qualified dermatologist.</div>""",
+            unsafe_allow_html=True,
+        )
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -629,7 +677,7 @@ def sidebar() -> None:
                     DermFed
                 </div>
                 <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
-                    v1.0 · Federated Medical AI
+                    v2.0 · XAI + TEE + VLM
                 </div>
             </div>
             <hr>
@@ -641,8 +689,10 @@ def sidebar() -> None:
         stack_items = [
             ("🌸", "Flower (flwr)",   "FL Framework"),
             ("🔥", "PyTorch",          "ML Backend"),
-            ("📱", "MobileNetV2",      "Model Backbone"),
-            ("🎈", "Streamlit",        "Dashboard"),
+            ("📱", "MobileNetV2",      "Backbone"),
+            ("🔍", "Grad-CAM",         "Explainability"),
+            ("🔒", "TEE Engine",       "Privacy Layer"),
+            ("✨", "Groq LLaMA 4",    "Free cloud VLM"),
             ("🗃️", "HAM10000",          "Dataset"),
         ]
         for icon, name, desc in stack_items:
@@ -660,10 +710,12 @@ def sidebar() -> None:
         data_exists  = Path("data/partitions").exists()
         metrics_ok   = METRICS_CSV.exists()
 
+        ollama_ok, _ = get_engine().refresh_status()
         for label, flag in [
             ("Data partitioned", data_exists),
             ("Model available",  model_exists),
             ("Training data",    metrics_ok),
+            ("Groq API",         ollama_ok),
         ]:
             badge_cls  = "badge-done" if flag else "badge-idle"
             badge_text = "✓ Ready" if flag else "○ Pending"
@@ -689,7 +741,7 @@ def main() -> None:
     sidebar()
     hero()
 
-    tab_a, tab_b = st.tabs(["📊  Simulation Monitor", "🩺  Image Inference"])
+    tab_a, tab_b = st.tabs(["📊  Simulation Monitor", "🩺  XAI Inference + TEE"])
     with tab_a:
         tab_simulation()
     with tab_b:

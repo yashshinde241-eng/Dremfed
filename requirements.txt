@@ -25,3 +25,7 @@ plotly==5.21.0
 
 # ── Optional (Kaggle download helper) ────────────────────────────────────────
 # kaggle==1.6.6
+# -- XAI + TEE + VLM (v3.0+) ------------------------------------------------
+opencv-python==4.9.0.80   # GradCAM heatmap generation
+groq                       # Groq API client (free tier VLM)
+python-dotenv==1.0.1       # Optional: load .env file automatically
